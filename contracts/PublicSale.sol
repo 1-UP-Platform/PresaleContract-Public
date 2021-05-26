@@ -1,0 +1,187 @@
+//SPDX-License-Identifier: Unlicensed
+pragma solidity 0.8.0;
+
+import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/utils/math/SafeMath.sol';
+
+import { InvestorsVesting, IVesting } from './InvestorsVesting.sol';
+import { LiquidityProvider, ILiquidityProvider } from './LiquidityProvider.sol';
+import './CliffVesting.sol';
+import './interfaces/IPublicSale.sol';
+import './interfaces/IOneUp.sol';
+
+
+contract PublicSale is IPublicSale, Ownable {
+    using SafeMath for uint256;
+
+    bool public privateSaleFinished;
+    bool public liquidityPoolCreated;
+
+    IOneUp public oneUpToken;
+    IVesting public immutable vesting;
+    ILiquidityProvider public immutable lpProvider;
+
+    address public reserveLockContract;
+    address public marketingLockContract;
+    address public developerLockContract;
+    address payable public immutable publicSaleFund;
+
+    uint256 public totalDeposits;
+    uint256 public publicSaleStartTimestamp;
+    uint256 public publicSaleFinishedAt;
+
+    uint256 public constant PRE_SALE_DELAY = 2 weeks;
+    uint256 public constant LP_CREATION_DELAY = 7 days;
+    uint256 public constant PUBLIC_SALE_LOCK_PERCENT = 5000;  // 50% of tokens
+    uint256 public constant PRIVATE_SALE_LOCK_PERCENT = 1500; // 15% of tokens
+    uint256 public constant PUBLIC_SALE_PRICE = 151000;       // 1 ETH = 151,000 token
+    uint256 public constant HARD_CAP_ETH_AMOUNT = 260 ether;
+    uint256 public constant MIN_DEPOSIT_ETH_AMOUNT = 0.5 ether;
+    uint256 public constant MAX_DEPOSIT_ETH_AMOUNT = 25 ether;
+
+    mapping(address => uint256) public deposits;
+
+    event Deposited(address indexed user, uint256 amount);
+    event Recovered(address token, uint256 amount);
+
+    // ------------------------
+    // CONSTRUCTOR
+    // ------------------------
+
+    constructor(address oneUpToken_, address payable publicSaleFund_, address uniswapRouter_) {
+        require(oneUpToken_ != address(0), 'PublicSale: Empty token address!');
+        require(publicSaleFund_ != address(0), 'PublicSale: Empty fund address!');
+        require(uniswapRouter_ != address(0), 'PublicSale: Empty uniswap router address!');
+
+        oneUpToken = IOneUp(oneUpToken_);
+        publicSaleFund = publicSaleFund_;
+
+        address vestingAddr = address(new InvestorsVesting(oneUpToken_));
+        vesting = IVesting(vestingAddr);
+
+        address lpProviderAddr = address(new LiquidityProvider(oneUpToken_, uniswapRouter_));
+        lpProvider = ILiquidityProvider(lpProviderAddr);
+    }
+
+    // ------------------------
+    // PAYABLE RECEIVE
+    // ------------------------
+
+    /// @notice Public receive method which accepts ETH
+    /// @dev It can be called ONLY when private sale finished, and public sale is active
+    receive() external payable {
+        require(privateSaleFinished, 'PublicSale: Private sale not finished yet!');
+        require(publicSaleFinishedAt == 0, 'PublicSale: Public sale already ended!');
+        require(block.timestamp >= publicSaleStartTimestamp && block.timestamp <= publicSaleStartTimestamp.add(PRE_SALE_DELAY), 'PublicSale: Time was reached!');
+        require(totalDeposits.add(msg.value) <= HARD_CAP_ETH_AMOUNT, 'PublicSale: Deposit limits reached!');
+        require(deposits[msg.sender].add(msg.value) >= MIN_DEPOSIT_ETH_AMOUNT && deposits[msg.sender].add(msg.value) <= MAX_DEPOSIT_ETH_AMOUNT, 'PublicSale: Limit is reached or not enough amount!');
+
+        deposits[msg.sender] = deposits[msg.sender].add(msg.value);
+        totalDeposits = totalDeposits.add(msg.value);
+
+        uint256 tokenAmount = msg.value.mul(PUBLIC_SALE_PRICE);
+        vesting.submit(msg.sender, tokenAmount, PUBLIC_SALE_LOCK_PERCENT);
+
+        emit Deposited(msg.sender, msg.value);
+    }
+
+    // ------------------------
+    // SETTERS (PUBLIC)
+    // ------------------------
+
+    /// @notice Finish public sale, it will trigger a '7 day delay' period before liquidity providing
+    /// @dev It can be called by anyone, if deadline or hard cap was reached
+    function endPublicSale() external override {
+        require(publicSaleFinishedAt == 0, 'endPublicSale: Public sale already finished!');
+        require(block.timestamp > publicSaleStartTimestamp.add(PRE_SALE_DELAY) || totalDeposits == HARD_CAP_ETH_AMOUNT, 'endPublicSale: Can not be finished!');
+
+        publicSaleFinishedAt = block.timestamp;
+    }
+
+    /// @notice Distribute collected ETH between company/liquidity provider and create liquidity pool
+    /// @dev It can be called by anyone, after 7 days from public sale finish
+    function addLiquidity() external override  {
+        require(!liquidityPoolCreated, 'addLiquidity: Pool already created!');
+        require(publicSaleFinishedAt != 0, 'addLiquidity: Public sale not finished!');
+        require(block.timestamp > publicSaleFinishedAt.add(LP_CREATION_DELAY), 'addLiquidity: Time was not reached!');
+
+        liquidityPoolCreated = true;
+
+        // Calculate distributions nd liquidity amounts
+        uint256 balance = address(this).balance;
+        uint256 liquidityEth = balance.div(2);
+
+        // Transfer ETH to pre-sale address and liquidity provider
+        publicSaleFund.transfer(balance.sub(liquidityEth));
+        payable(address(lpProvider)).transfer(liquidityEth);
+
+        // Create liquidity pool
+        lpProvider.addLiquidity();
+
+        // Start vesting for investors
+        vesting.setStart();
+    }
+
+    // ------------------------
+    // SETTERS (OWNABLE)
+    // ------------------------
+
+    /// @notice Admin can manually add private sale investors with this method
+    /// @dev It can be called ONLY during private sale, also lengths of addresses and investments should be equal
+    /// @param investors Array of investors addresses
+    /// @param amounts Tokens Amount which investors needs to receive (INVESTED ETH * 200.000)
+    function addPrivateAllocations(address[] memory investors, uint256[] memory amounts) public override onlyOwner {
+        require(!privateSaleFinished, 'addPrivateAllocations: Private sale is ended!');
+        require(investors.length > 0, 'addPrivateAllocations: Array can not be empty!');
+        require(investors.length == amounts.length, 'addPrivateAllocations: Arrays should have the same length!');
+
+        vesting.submitMulti(investors, amounts, PRIVATE_SALE_LOCK_PERCENT);
+    }
+
+    /// @notice Finish private sale and start public sale
+    /// @dev It can be called once and ONLY during private sale, by admin
+    function endPrivateSale() external override onlyOwner {
+        require(!privateSaleFinished, 'endPrivateSale: Private sale is ended!');
+
+        privateSaleFinished = true;
+        publicSaleStartTimestamp = block.timestamp;
+    }
+
+    /// @notice Recover contract based tokens
+    /// @dev Should be called by admin only to recover lost tokens
+    function recoverERC20(address tokenAddress) external override onlyOwner {
+        uint256 balance = IERC20(tokenAddress).balanceOf(address(this));
+        IERC20(tokenAddress).transfer(msg.sender, balance);
+        emit Recovered(tokenAddress, balance);
+    }
+
+    /// @notice Recover locked LP tokens when time reached
+    /// @dev Should be called by admin only, and tokens will be transferred to the owner address
+    function recoverLpToken(address lPTokenAddress) external override onlyOwner {
+        lpProvider.recoverERC20(lPTokenAddress, msg.sender);
+    }
+
+    /// @notice Recover locked ETH from liquidity provider contract
+    /// @dev Should be called by admin only. ETH can be locked if adding liquidity on Uniswap will be failed for any reasons
+    function recoverLpEth() external override onlyOwner {
+        lpProvider.emergencyWithdraw(payable(msg.sender));
+    }
+
+    /// @notice Mint and lock tokens for team, marketing, reserve
+    /// @dev Only admin can call it once, after liquidity pool creation
+    function lockCompanyTokens(address developerReceiver, address marketingReceiver, address reserveReceiver) external override {
+        require(marketingReceiver != address(0) && reserveReceiver != address(0) && developerReceiver != address(0), 'lockCompanyTokens: Can not be zero address!');
+        require(marketingLockContract == address(0) && reserveLockContract == address(0) && developerLockContract == address(0), 'lockCompanyTokens: Already locked!');
+        require(block.timestamp > publicSaleFinishedAt.add(LP_CREATION_DELAY), 'lockCompanyTokens: Should be called after LP creation!');
+        require(liquidityPoolCreated, 'lockCompanyTokens: Pool was not created!');
+
+        developerLockContract = address(new CliffVesting(developerReceiver, 30 days, 180 days, address(oneUpToken)));    //  1 month cliff  6 months vesting
+        marketingLockContract = address(new CliffVesting(marketingReceiver, 7 days, 90 days, address(oneUpToken)));      //  7 days cliff   3 months vesting
+        reserveLockContract = address(new CliffVesting(reserveReceiver, 270 days, 360 days, address(oneUpToken)));        //  9 months cliff 3 months vesting
+
+        oneUpToken.mint(developerLockContract, 8000000 ether);  // 8 mln tokens
+        oneUpToken.mint(marketingLockContract, 5000000 ether);  // 5 mln tokens
+        oneUpToken.mint(reserveLockContract, 1500000 ether);    // 1.5 mln tokens
+    }
+}
