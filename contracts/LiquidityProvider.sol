@@ -13,6 +13,7 @@ contract LiquidityProvider is ILiquidityProvider, Ownable {
 
     uint256 public lock;
     uint256 public constant UNISWAP_TOKEN_PRICE = 120000; // 1 ETH = 120,000 1-UP
+    uint256 public constant LP_TOKENS_LOCK_DELAY = 180 days;
 
     IOneUp public immutable oneUpToken;
     IUniswapV2Router02 public immutable uniswap;
@@ -60,13 +61,13 @@ contract LiquidityProvider is ILiquidityProvider, Ownable {
         emit Provided(amountTokenDesired, balance);
     }
 
-    /// @notice Owner can recover LP tokens after 90 days from adding liquidity
+    /// @notice Owner can recover LP tokens after LP_TOKENS_LOCK_DELAY from adding liquidity
     /// @dev If time does not reached method will be failed
     /// @param lpTokenAddress Address of 1-UP/ETH LP token
     /// @param receiver Address who should receive tokens
     function recoverERC20(address lpTokenAddress, address receiver) public override onlyOwner {
         require(lock != 0, 'recoverERC20: Liquidity not added yet!');
-        require(block.timestamp >= lock.add(90 days), 'recoverERC20: You can claim LP tokens after 12 weeks!');
+        require(block.timestamp >= lock.add(LP_TOKENS_LOCK_DELAY), 'recoverERC20: You can claim LP tokens after 180 days!');
 
         IERC20 lpToken = IERC20(lpTokenAddress);
         uint256 balance = lpToken.balanceOf(address(this));

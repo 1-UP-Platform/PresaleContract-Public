@@ -287,6 +287,10 @@ describe('End-to-end test', function () {
       expect(await oneUp.balanceOf(marketingLockContract)).to.be.eq(parseEther('5000000'))
       expect(await oneUp.balanceOf(reserveLockContract)).to.be.eq(parseEther('1500000'))
     })
+
+    it('Claiming LP tokens before time reach should be failed', async function () {
+      await expect(publicSale.connect(owner).recoverLpToken(lpTokenMock.address)).to.be.revertedWith('recoverERC20: You can claim LP tokens after 180 days!');
+    })
   })
 
   describe('Investors claiming TGE tokens', async function () {

@@ -31,8 +31,9 @@ contract PublicSale is IPublicSale, Ownable {
     uint256 public publicSaleStartTimestamp;
     uint256 public publicSaleFinishedAt;
 
-    uint256 public constant PRE_SALE_DELAY = 2 weeks;
-    uint256 public constant LP_CREATION_DELAY = 7 days;
+    uint256 public constant PUBLIC_SALE_DELAY = 10 days;
+    uint256 public constant LP_CREATION_DELAY = 60 minutes;
+    uint256 public constant TRADING_BLOCK_DELAY = 60 minutes;
     uint256 public constant WHITELISTED_USERS_ACCESS = 6 hours;
 
     uint256 public constant PUBLIC_SALE_LOCK_PERCENT = 5000;  // 50% of tokens
@@ -78,7 +79,7 @@ contract PublicSale is IPublicSale, Ownable {
     receive() external payable {
         require(privateSaleFinished, 'PublicSale: Private sale not finished yet!');
         require(publicSaleFinishedAt == 0, 'PublicSale: Public sale already ended!');
-        require(block.timestamp >= publicSaleStartTimestamp && block.timestamp <= publicSaleStartTimestamp.add(PRE_SALE_DELAY), 'PublicSale: Time was reached!');
+        require(block.timestamp >= publicSaleStartTimestamp && block.timestamp <= publicSaleStartTimestamp.add(PUBLIC_SALE_DELAY), 'PublicSale: Time was reached!');
         require(totalDeposits.add(msg.value) <= HARD_CAP_ETH_AMOUNT, 'PublicSale: Deposit limits reached!');
         require(_deposits[msg.sender].add(msg.value) >= MIN_DEPOSIT_ETH_AMOUNT && _deposits[msg.sender].add(msg.value) <= MAX_DEPOSIT_ETH_AMOUNT, 'PublicSale: Limit is reached or not enough amount!');
 
@@ -102,17 +103,17 @@ contract PublicSale is IPublicSale, Ownable {
     // SETTERS (PUBLIC)
     // ------------------------
 
-    /// @notice Finish public sale, it will trigger a '7 day delay' period before liquidity providing
+    /// @notice Finish public sale
     /// @dev It can be called by anyone, if deadline or hard cap was reached
     function endPublicSale() external override {
         require(publicSaleFinishedAt == 0, 'endPublicSale: Public sale already finished!');
-        require(block.timestamp > publicSaleStartTimestamp.add(PRE_SALE_DELAY) || totalDeposits == HARD_CAP_ETH_AMOUNT, 'endPublicSale: Can not be finished!');
+        require(block.timestamp > publicSaleStartTimestamp.add(PUBLIC_SALE_DELAY) || totalDeposits == HARD_CAP_ETH_AMOUNT, 'endPublicSale: Can not be finished!');
 
         publicSaleFinishedAt = block.timestamp;
     }
 
     /// @notice Distribute collected ETH between company/liquidity provider and create liquidity pool
-    /// @dev It can be called by anyone, after 7 days from public sale finish
+    /// @dev It can be called by anyone, after LP_CREATION_DELAY from public sale finish
     function addLiquidity() external override  {
         require(!liquidityPoolCreated, 'addLiquidity: Pool already created!');
         require(publicSaleFinishedAt != 0, 'addLiquidity: Public sale not finished!');
@@ -134,8 +135,8 @@ contract PublicSale is IPublicSale, Ownable {
         // Start vesting for investors
         vesting.setStart();
 
-        // Tokens will be tradable in 7 days
-        oneUpToken.setTradingStart(block.timestamp.add(7 days));
+        // Tokens will be tradable in TRADING_BLOCK_DELAY
+        oneUpToken.setTradingStart(block.timestamp.add(TRADING_BLOCK_DELAY));
     }
 
     // ------------------------
