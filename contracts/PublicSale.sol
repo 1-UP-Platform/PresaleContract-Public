@@ -121,9 +121,10 @@ contract PublicSale is IPublicSale, Ownable {
 
         liquidityPoolCreated = true;
 
-        // Calculate distributions nd liquidity amounts
+        // Calculate distribution and liquidity amounts
         uint256 balance = address(this).balance;
-        uint256 liquidityEth = balance.div(2);
+        // Prepare 70% of all ETH for LP creation
+        uint256 liquidityEth = balance.mul(7000).div(10000);
 
         // Transfer ETH to pre-sale address and liquidity provider
         publicSaleFund.transfer(balance.sub(liquidityEth));
