@@ -75,10 +75,4 @@ contract LiquidityProvider is ILiquidityProvider, Ownable {
 
         emit Recovered(lpTokenAddress, balance);
     }
-
-    /// @notice Owner can emergency withdraw locked ETH from contract
-    /// @param receiver Address who should receive ETH
-    function emergencyWithdraw(address payable receiver) public override onlyOwner {
-        receiver.transfer(address(this).balance);
-    }
 }

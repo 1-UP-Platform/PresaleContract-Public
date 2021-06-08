@@ -19,6 +19,10 @@ contract InvestorsVesting is IVesting, Ownable {
     IOneUp public immutable oneUpToken;
 
     struct Investor {
+        // If user keep his tokens during the all vesting delay
+        // He becomes privileged user and will be allowed to do some extra stuff
+        bool isPrivileged;
+
         // Tge tokens will be available for claiming immediately after UNI liquidity creation
         // Users will receive all available TGE tokens with 1 transaction
         uint256 tgeTokens;
@@ -32,6 +36,7 @@ contract InvestorsVesting is IVesting, Ownable {
 
     mapping(address => Investor) internal _investors;
 
+    event NewPrivilegedUser(address investor);
     event TokensReceived(address investor, uint256 amount, bool isLockedTokens);
 
     // ------------------------
@@ -63,6 +68,13 @@ contract InvestorsVesting is IVesting, Ownable {
 
         _investors[investor].tgeTokens = _investors[investor].tgeTokens.add(tgeTokens);
         _investors[investor].totalLockedTokens = _investors[investor].totalLockedTokens.add(lockedAmount);
+    }
+
+    /// @notice Remove investor data
+    /// @dev Owner will remove investors data if they called emergency exit method
+    /// @param investor Address of investor
+    function reset(address investor) public override onlyOwner {
+      delete _investors[investor];
     }
 
     /// @notice The same as submit, but for multiply investors
@@ -119,6 +131,14 @@ contract InvestorsVesting is IVesting, Ownable {
         uint256 availableAmount = _releasableAmount(msg.sender);
         require(availableAmount > 0, 'claimLockedTokens: No available tokens!');
 
+        // If investors claim all tokens after vesting finish they become privileged
+        // No need to validate flag every time, as users will claim all tokens with this method
+        if (_investors[msg.sender].releasedLockedTokens == 0 && block.timestamp > finish) {
+            _investors[msg.sender].isPrivileged = true;
+
+            emit NewPrivilegedUser(msg.sender);
+        }
+
         // Update user released locked tokens amount
         _investors[msg.sender].releasedLockedTokens = _investors[msg.sender].releasedLockedTokens.add(availableAmount);
 
@@ -152,6 +172,12 @@ contract InvestorsVesting is IVesting, Ownable {
         );
     }
 
+    /// @notice Is investor privileged or not, it will be used from external contracts
+    /// @param account user address
+    function isPrivilegedInvestor(address account) public override view returns (bool) {
+        return _investors[account].isPrivileged;
+    }
+
     // ------------------------
     // INTERNAL
     // ------------------------
@@ -171,5 +197,9 @@ contract InvestorsVesting is IVesting, Ownable {
             uint256 timeSinceStart = block.timestamp.sub(start);
             return userMaxTokens.mul(timeSinceStart).div(VESTING_DELAY);
         }
+    }
+
+    function getStartTime() public view returns (uint256) {
+        return start;
     }
 }

@@ -49,6 +49,7 @@ contract PublicSale is IPublicSale, Ownable {
 
     event Deposited(address indexed user, uint256 amount);
     event Recovered(address token, uint256 amount);
+    event EmergencyWithdrawn(address user, uint256 amount);
     event UsersWhitelisted(address[] users, uint256 maxAmount);
 
     // ------------------------
@@ -77,6 +78,10 @@ contract PublicSale is IPublicSale, Ownable {
     /// @notice Public receive method which accepts ETH
     /// @dev It can be called ONLY when private sale finished, and public sale is active
     receive() external payable {
+        deposit();
+    }
+
+    function deposit() public payable {
         require(privateSaleFinished, 'PublicSale: Private sale not finished yet!');
         require(publicSaleFinishedAt == 0, 'PublicSale: Public sale already ended!');
         require(block.timestamp >= publicSaleStartTimestamp && block.timestamp <= publicSaleStartTimestamp.add(PUBLIC_SALE_DELAY), 'PublicSale: Time was reached!');
@@ -140,6 +145,25 @@ contract PublicSale is IPublicSale, Ownable {
         oneUpToken.setTradingStart(block.timestamp.add(TRADING_BLOCK_DELAY));
     }
 
+    /// @notice Investor withdraw invested funds
+    /// @dev Method will be available after 1 day if liquidity was not added
+    function emergencyWithdrawFunds() external override {
+      require(!liquidityPoolCreated, 'emergencyWithdrawFunds: Liquidity pool already created!');
+      require(block.timestamp > publicSaleFinishedAt.add(LP_CREATION_DELAY).add(1 days), 'emergencyWithdrawFunds: Not allowed to call now!');
+
+      uint256 investedAmount = _deposits[msg.sender];
+      require(investedAmount > 0, 'emergencyWithdrawFunds: No funds to receive!');
+
+      // Reset user vesting information
+      vesting.reset(msg.sender);
+
+      // Transfer funds back to the user
+      _deposits[msg.sender] = 0;
+      payable(msg.sender).transfer(investedAmount);
+
+      emit EmergencyWithdrawn(msg.sender, investedAmount);
+    }
+
     // ------------------------
     // SETTERS (OWNABLE)
     // ------------------------
@@ -177,12 +201,6 @@ contract PublicSale is IPublicSale, Ownable {
     /// @dev Should be called by admin only, and tokens will be transferred to the owner address
     function recoverLpToken(address lPTokenAddress) external override onlyOwner {
         lpProvider.recoverERC20(lPTokenAddress, msg.sender);
-    }
-
-    /// @notice Recover locked ETH from liquidity provider contract
-    /// @dev Should be called by admin only. ETH can be locked if adding liquidity on Uniswap will be failed for any reasons
-    function recoverLpEth() external override onlyOwner {
-        lpProvider.emergencyWithdraw(payable(msg.sender));
     }
 
     /// @notice Mint and lock tokens for team, marketing, reserve
@@ -233,5 +251,9 @@ contract PublicSale is IPublicSale, Ownable {
     /// @param user address
     function getUserDeposits(address user) public override view returns (uint256) {
         return _deposits[user];
+    }
+
+    function getTotalDeposits() public view returns (uint256) {
+        return totalDeposits;
     }
  }

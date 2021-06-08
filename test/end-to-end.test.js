@@ -6,7 +6,7 @@ describe('End-to-end test', function () {
   // Contracts
   let oneUp, liquidityProvider, investorsVesting, publicSale, uniswapMock, lpTokenMock;
   // Addresses
-  let owner, investor1, investor2, investor3, investor4, badActor, timelockReceiver, preSaleFundAddr;
+  let owner, investor1, investor2, investor3, investor4, investor5, badActor, timelockReceiver, preSaleFundAddr;
   // Helpers
   let minterRoleHash, adminRoleHash, incrementedTime = 0;
 
@@ -31,7 +31,7 @@ describe('End-to-end test', function () {
     const InvestorsVesting = await ethers.getContractFactory('InvestorsVesting');
     const MockUniswap = await ethers.getContractFactory('MockUniswap');
 
-    [owner, investor1, investor2, investor3, investor4, badActor, timelockReceiver, preSaleFundAddr] = await ethers.getSigners();
+    [owner, investor1, investor2, investor3, investor4, investor5, badActor, timelockReceiver, preSaleFundAddr] = await ethers.getSigners();
 
     // Deploy token
     oneUp = await OneUp.deploy();
@@ -150,6 +150,7 @@ describe('End-to-end test', function () {
 
       await publicSale.connect(owner).whitelistUsers([investor3.address], parseEther('0.5'));
       await publicSale.connect(owner).whitelistUsers([investor4.address], parseEther('1'));
+      await publicSale.connect(owner).whitelistUsers([investor5.address], parseEther('1'));
 
       expect(await publicSale.getWhitelistedAmount(investor3.address)).to.be.eq(parseEther('0.5'));
       expect(await publicSale.getWhitelistedAmount(investor4.address)).to.be.eq(parseEther('1'));
@@ -174,6 +175,11 @@ describe('End-to-end test', function () {
       })
 
       await investor4.sendTransaction({
+        to: publicSale.address,
+        value: parseEther('0.5')
+      })
+
+      await investor5.sendTransaction({
         to: publicSale.address,
         value: parseEther('0.5')
       })
@@ -263,6 +269,37 @@ describe('End-to-end test', function () {
       await oneUp.whitelistAccount('0x0000000000000000000000000000000000000000'); // For minting new tokens this addresss is ffrom
     })
 
+    it('Emergency withdraw test', async function () {
+      // Check Investor 1 initial state before claim
+      let investor5Data = await investorsVesting.getUserData(investor5.address)
+      const investor5TotalTokens = 0.5 * 151000
+      expect(investor5Data.tgeAmount).to.be.eq(parseEther((investor5TotalTokens / 2).toString()))
+      expect(investor5Data.releasedLockedTokens).to.be.eq('0')
+      expect(investor5Data.totalLockedTokens).to.be.eq(parseEther((investor5TotalTokens / 2).toString()))
+
+      let investor5Deposits = await publicSale.getUserDeposits(investor5.address)
+      expect(investor5Deposits).to.be.eq(parseEther('0.5'))
+
+      // Increase emergency method required time (1 day)
+      await increaseTime(hour, 25)
+
+      // Call emergency exit method
+      await publicSale.connect(investor5).emergencyWithdrawFunds()
+
+      // Check Investor 1 initial state before claim
+      investor5Data = await investorsVesting.getUserData(investor5.address)
+      expect(investor5Data.tgeAmount).to.be.eq('0')
+      expect(investor5Data.releasedLockedTokens).to.be.eq('0')
+      expect(investor5Data.totalLockedTokens).to.be.eq('0')
+
+      investor5Deposits = await publicSale.getUserDeposits(investor5.address)
+      expect(investor5Deposits).to.be.eq('0')
+    })
+
+    it('Calling emergency withdraw will be failed 2nd time', async function () {
+      await expect(publicSale.connect(investor5).emergencyWithdrawFunds()).to.be.revertedWith('emergencyWithdrawFunds: No funds to receive!');
+    })
+
     it('Create liquidity pool', async function () {
       await publicSale.connect(investor1).addLiquidity()
       expect(await publicSale.liquidityPoolCreated()).to.be.eq(true);
@@ -271,10 +308,6 @@ describe('End-to-end test', function () {
       const MockLiquidityToken = await ethers.getContractFactory('MockLiquidityToken');
       lpTokenMock = await MockLiquidityToken.attach(await uniswapMock.lpToken())
       expect(await lpTokenMock.balanceOf(liquidityProvider.address)).to.be.eq(parseEther('100')) // Locked LP tokens
-    })
-
-    it('Emergency ETH withdraw should work after LP creation', async function () {
-      await publicSale.recoverLpEth()
     })
 
     it('Create timelock contracts and check the balances', async function () {
@@ -340,6 +373,10 @@ describe('End-to-end test', function () {
       await expect(investorsVesting.connect(investor1).claimTgeTokens()).to.be.revertedWith('claimTgeTokens: No available tokens!');
       await expect(investorsVesting.connect(investor2).claimTgeTokens()).to.be.revertedWith('claimTgeTokens: No available tokens!');
     })
+
+    it('Calling emergency withdraw after liquidity pool creation should be failed', async function () {
+      await expect(publicSale.connect(investor1).emergencyWithdrawFunds()).to.be.revertedWith('emergencyWithdrawFunds: Liquidity pool already created!');
+    })
   })
 
   describe('Investors claiming locked tokens', async function () {
@@ -352,6 +389,7 @@ describe('End-to-end test', function () {
 
       // Check Investor 1 initial state before claim
       let investor1Data = await investorsVesting.getUserData(investor1.address)
+      let isPrivileged = await investorsVesting.isPrivilegedInvestor(investor1.address)
       expect(investor1Data.tgeAmount).to.be.eq(parseEther('0'))
       expect(investor1Data.releasedLockedTokens).to.be.eq('0')
       expect(investor1Data.totalLockedTokens).to.be.eq(parseEther('850'))
@@ -380,11 +418,24 @@ describe('End-to-end test', function () {
 
       // Check state after claiming
       investor1Data = await investorsVesting.getUserData(investor1.address)
+      isPrivileged = await investorsVesting.isPrivilegedInvestor(investor1.address)
       expect(investor1Data.tgeAmount).to.be.eq('0')
       expect(investor1Data.totalLockedTokens).to.be.eq(parseEther('850'))
       expect(investor1Data.releasedLockedTokens).to.be.eq(parseEther('850'))
+      expect(isPrivileged).to.be.eq(false)
       expect(await oneUp.balanceOf(investor1.address)).to.be.eq(parseEther('1000'))
       expect(await investorsVesting.getReleasableLockedTokens(investor1.address)).to.be.eq('0')
+    })
+
+    it('Investor who claim after finish becomes privileged', async function () {
+      let isPrivileged = await investorsVesting.isPrivilegedInvestor(investor2.address)
+      expect(isPrivileged).to.be.eq(false)
+
+      // Claim
+      await investorsVesting.connect(investor2).claimLockedTokens()
+
+      isPrivileged = await investorsVesting.isPrivilegedInvestor(investor2.address)
+      expect(isPrivileged).to.be.eq(true)
     })
   })
 
