@@ -6,7 +6,7 @@ const { removeConsoleLog } = require('hardhat-preprocessor');
 
 module.exports = {
   solidity: {
-    version: '0.8.0',
+    version: '0.8.4',
     settings: {
       optimizer: {
         enabled: true,

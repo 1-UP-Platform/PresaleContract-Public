@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicensed
-pragma solidity 0.8.0;
+pragma solidity 0.8.4;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
@@ -91,7 +91,7 @@ contract PublicSale is IPublicSale, Ownable {
         // Check the whitelisted status during the the first 6 hours
         if (block.timestamp < publicSaleStartTimestamp.add(WHITELISTED_USERS_ACCESS)) {
             require(_whitelistedAmount[msg.sender] > 0, 'PublicSale: Its time for whitelisted investors only!');
-            require(_whitelistedAmount[msg.sender] >= msg.value, 'PublicSale: Sent amount should be equal to allowed limit!');
+            require(_whitelistedAmount[msg.sender] >= msg.value, 'PublicSale: Sent amount should not be bigger from allowed limit!');
             _whitelistedAmount[msg.sender] = _whitelistedAmount[msg.sender].sub(msg.value);
         }
 
@@ -174,7 +174,7 @@ contract PublicSale is IPublicSale, Ownable {
     /// @dev It can be called ONLY during private sale, also lengths of addresses and investments should be equal
     /// @param investors Array of investors addresses
     /// @param amounts Tokens Amount which investors needs to receive (INVESTED ETH * 200.000)
-    function addPrivateAllocations(address[] memory investors, uint256[] memory amounts) public override onlyOwner {
+    function addPrivateAllocations(address[] memory investors, uint256[] memory amounts) external override onlyOwner {
         require(!privateSaleFinished, 'addPrivateAllocations: Private sale is ended!');
         require(investors.length > 0, 'addPrivateAllocations: Array can not be empty!');
         require(investors.length == amounts.length, 'addPrivateAllocations: Arrays should have the same length!');
@@ -245,17 +245,17 @@ contract PublicSale is IPublicSale, Ownable {
 
     /// @notice Returns how much provided user can invest during the first 6 hours (if whitelisted)
     /// @param user address
-    function getWhitelistedAmount(address user) public override view returns (uint256) {
+    function getWhitelistedAmount(address user) external override view returns (uint256) {
         return _whitelistedAmount[user];
     }
 
     /// @notice Returns how much user invested during the whole public sale
     /// @param user address
-    function getUserDeposits(address user) public override view returns (uint256) {
+    function getUserDeposits(address user) external override view returns (uint256) {
         return _deposits[user];
     }
 
-    function getTotalDeposits() public view returns (uint256) {
+    function getTotalDeposits() external view returns (uint256) {
         return totalDeposits;
     }
  }

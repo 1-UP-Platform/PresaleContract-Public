@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicensed
-pragma solidity 0.8.0;
+pragma solidity 0.8.4;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
@@ -107,7 +107,7 @@ contract InvestorsVesting is IVesting, Ownable {
 
     /// @notice Claim TGE tokens immediately after start
     /// @dev Can be called once for each investor
-    function claimTgeTokens() public override {
+    function claimTgeTokens() external override {
         require(start > 0, 'claimTgeTokens: TGE tokens not available now!');
 
         // Get user available TGE tokens
@@ -124,7 +124,7 @@ contract InvestorsVesting is IVesting, Ownable {
     }
 
     /// @notice Claim locked tokens
-    function claimLockedTokens() public override {
+    function claimLockedTokens() external override {
         require(start > 0, 'claimLockedTokens: Locked tokens not available now!');
 
         // Get user releasable tokens
@@ -154,13 +154,13 @@ contract InvestorsVesting is IVesting, Ownable {
 
     /// @notice Get current available locked tokens
     /// @param investor address
-    function getReleasableLockedTokens(address investor) public override view returns (uint256) {
+    function getReleasableLockedTokens(address investor) external override view returns (uint256) {
         return _releasableAmount(investor);
     }
 
     /// @notice Get investor data
     /// @param investor address
-    function getUserData(address investor) public override view returns (
+    function getUserData(address investor) external override view returns (
         uint256 tgeAmount,
         uint256 releasedLockedTokens,
         uint256 totalLockedTokens
@@ -174,7 +174,7 @@ contract InvestorsVesting is IVesting, Ownable {
 
     /// @notice Is investor privileged or not, it will be used from external contracts
     /// @param account user address
-    function isPrivilegedInvestor(address account) public override view returns (bool) {
+    function isPrivilegedInvestor(address account) external override view returns (bool) {
         return _investors[account].isPrivileged;
     }
 
@@ -199,7 +199,7 @@ contract InvestorsVesting is IVesting, Ownable {
         }
     }
 
-    function getStartTime() public view returns (uint256) {
+    function getStartTime() external view returns (uint256) {
         return start;
     }
 }

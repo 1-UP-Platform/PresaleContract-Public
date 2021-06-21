@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicensed
-pragma solidity 0.8.0;
+pragma solidity 0.8.4;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/math/SafeMath.sol';
@@ -108,11 +108,11 @@ contract OneUp is ERC20PresetMinterPauser, Ownable {
     // GETTERS
     // ------------------------
 
-    function lastTx(address account) public view returns (uint256) {
+    function lastTx(address account) external view returns (uint256) {
         return _lastTx[account];
     }
 
-    function isWhitelisted(address account) public view returns (bool) {
+    function isWhitelisted(address account) external view returns (bool) {
         return _isWhitelisted[account];
     }
 

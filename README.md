@@ -3,10 +3,10 @@
 ### Install
 
 Clone this repository: <br>
-`git clone https://github.com/1-up-platform/PresaleContract-Public.git`
+`git clone https://github.com/1-up-platform/PresaleContract.git`
 
 Install dependencies: <br>
-`cd PresaleContract-Public && npm install`
+`cd PresaleContract && npm install`
 
 ### Tests
 
