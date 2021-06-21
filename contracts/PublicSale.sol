@@ -31,17 +31,17 @@ contract PublicSale is IPublicSale, Ownable {
     uint256 public publicSaleStartTimestamp;
     uint256 public publicSaleFinishedAt;
 
-    uint256 public constant PUBLIC_SALE_DELAY = 10 days;
-    uint256 public constant LP_CREATION_DELAY = 60 minutes;
-    uint256 public constant TRADING_BLOCK_DELAY = 60 minutes;
-    uint256 public constant WHITELISTED_USERS_ACCESS = 6 hours;
+    uint256 public constant PUBLIC_SALE_DELAY = 7 days;
+    uint256 public constant LP_CREATION_DELAY = 30 minutes;
+    uint256 public constant TRADING_BLOCK_DELAY = 15 minutes;
+    uint256 public constant WHITELISTED_USERS_ACCESS = 2 hours;
 
     uint256 public constant PUBLIC_SALE_LOCK_PERCENT = 5000;  // 50% of tokens
     uint256 public constant PRIVATE_SALE_LOCK_PERCENT = 1500; // 15% of tokens
     uint256 public constant PUBLIC_SALE_PRICE = 151000;       // 1 ETH = 151,000 token
 
     uint256 public constant HARD_CAP_ETH_AMOUNT = 260 ether;
-    uint256 public constant MIN_DEPOSIT_ETH_AMOUNT = 0.5 ether;
+    uint256 public constant MIN_DEPOSIT_ETH_AMOUNT = 0.1 ether;
     uint256 public constant MAX_DEPOSIT_ETH_AMOUNT = 2 ether;
 
     mapping(address => uint256) internal _deposits;
