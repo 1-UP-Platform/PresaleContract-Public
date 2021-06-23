@@ -303,7 +303,7 @@ describe('End-to-end test', function () {
     it('Create liquidity pool', async function () {
       await publicSale.connect(investor1).addLiquidity()
       expect(await publicSale.liquidityPoolCreated()).to.be.eq(true);
-      expect(await oneUp.balanceOf(uniswapMock.address)).to.be.eq(parseEther((0.7 * 120000).toString())) // 0.7 ETH sent to Uniswap (half of total investments), with rate 120.000 tokens per ETH
+      expect(await oneUp.balanceOf(uniswapMock.address)).to.be.eq(parseEther((0.6 * 120000).toString())) // 0.7 ETH sent to Uniswap (half of total investments), with rate 120.000 tokens per ETH
 
       const MockLiquidityToken = await ethers.getContractFactory('MockLiquidityToken');
       lpTokenMock = await MockLiquidityToken.attach(await uniswapMock.lpToken())
@@ -316,9 +316,9 @@ describe('End-to-end test', function () {
       let marketingLockContract = await publicSale.marketingLockContract()
       let reserveLockContract = await publicSale.reserveLockContract()
 
-      expect(await oneUp.balanceOf(developerLockContract)).to.be.eq(parseEther('8000000'))
-      expect(await oneUp.balanceOf(marketingLockContract)).to.be.eq(parseEther('5000000'))
-      expect(await oneUp.balanceOf(reserveLockContract)).to.be.eq(parseEther('1500000'))
+      expect(await oneUp.balanceOf(developerLockContract)).to.be.eq(parseEther('2000000'))
+      expect(await oneUp.balanceOf(marketingLockContract)).to.be.eq(parseEther('2000000'))
+      expect(await oneUp.balanceOf(reserveLockContract)).to.be.eq(parseEther('500000'))
     })
 
     it('Claiming LP tokens before time reach should be failed', async function () {
@@ -328,7 +328,7 @@ describe('End-to-end test', function () {
 
   describe('Investors claiming TGE tokens', async function () {
     it('Investors claim TGE tokens', async function () {
-      const earlierTotalSupply = parseEther((0.7 * 120000 + 8000000 + 5000000 + 1500000).toString())
+      const earlierTotalSupply = parseEther((0.6 * 120000 + 2000000 + 2000000 + 500000).toString())
 
       // Check Investor 1 initial state before claim
       let investor1Data = await investorsVesting.getUserData(investor1.address)
@@ -385,7 +385,7 @@ describe('End-to-end test', function () {
     })
 
     it('Investors claim locked tokens', async function () {
-      let earlierTotalSupply = parseEther((0.7 * 120000 + 8000000 + 5000000 + 1500000 + 450).toString())
+      let earlierTotalSupply = parseEther((0.6 * 120000 + 2000000 + 2000000 + 500000 + 450).toString())
 
       // Check Investor 1 initial state before claim
       let investor1Data = await investorsVesting.getUserData(investor1.address)
@@ -446,11 +446,11 @@ describe('End-to-end test', function () {
       let marketingLockContract = CliffVesting.attach(await publicSale.marketingLockContract())
 
       expect(await oneUp.balanceOf(timelockReceiver.address)).to.be.eq('0')
-      expect(await oneUp.balanceOf(marketingLockContract.address)).to.be.eq(parseEther('5000000'))
+      expect(await oneUp.balanceOf(marketingLockContract.address)).to.be.eq(parseEther('2000000'))
 
       await marketingLockContract.connect(badActor).release() // anyone can call this method
 
-      expect(await oneUp.balanceOf(timelockReceiver.address)).to.be.eq(parseEther('5000000'))
+      expect(await oneUp.balanceOf(timelockReceiver.address)).to.be.eq(parseEther('2000000'))
       expect(await oneUp.balanceOf(marketingLockContract.address)).to.be.eq('0')
     })
   })
