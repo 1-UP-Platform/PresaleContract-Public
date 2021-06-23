@@ -40,7 +40,7 @@ contract PublicSale is IPublicSale, Ownable {
     uint256 public constant PRIVATE_SALE_LOCK_PERCENT = 1500; // 15% of tokens
     uint256 public constant PUBLIC_SALE_PRICE = 151000;       // 1 ETH = 151,000 token
 
-    uint256 public constant HARD_CAP_ETH_AMOUNT = 320 ether;
+    uint256 public constant HARD_CAP_ETH_AMOUNT = 300 ether;
     uint256 public constant MIN_DEPOSIT_ETH_AMOUNT = 0.1 ether;
     uint256 public constant MAX_DEPOSIT_ETH_AMOUNT = 5 ether;
 
@@ -217,8 +217,8 @@ contract PublicSale is IPublicSale, Ownable {
         marketingLockContract = address(new CliffVesting(marketingReceiver, 7 days, 90 days, address(oneUpToken)));      //  7 days cliff   3 months vesting
         reserveLockContract = address(new CliffVesting(reserveReceiver, 270 days, 360 days, address(oneUpToken)));        //  9 months cliff 3 months vesting
 
-        oneUpToken.mint(developerLockContract, 2000000 ether);  // 2 mln tokens
-        oneUpToken.mint(marketingLockContract, 2000000 ether);  // 2 mln tokens
+        oneUpToken.mint(developerLockContract, 4000000 ether);  // 4 mln tokens
+        oneUpToken.mint(marketingLockContract, 4000000 ether);  // 4 mln tokens
         oneUpToken.mint(reserveLockContract, 500000 ether);    // 500k tokens
     }
 
