@@ -42,7 +42,7 @@ contract PublicSale is IPublicSale, Ownable {
 
     uint256 public constant HARD_CAP_ETH_AMOUNT = 320 ether;
     uint256 public constant MIN_DEPOSIT_ETH_AMOUNT = 0.1 ether;
-    uint256 public constant MAX_DEPOSIT_ETH_AMOUNT = 2 ether;
+    uint256 public constant MAX_DEPOSIT_ETH_AMOUNT = 5 ether;
 
     mapping(address => uint256) internal _deposits;
     mapping(address => uint256) internal _whitelistedAmount;
