@@ -40,7 +40,7 @@ contract PublicSale is IPublicSale, Ownable {
     uint256 public constant PRIVATE_SALE_LOCK_PERCENT = 1500; // 15% of tokens
     uint256 public constant PUBLIC_SALE_PRICE = 151000;       // 1 ETH = 151,000 token
 
-    uint256 public constant HARD_CAP_ETH_AMOUNT = 260 ether;
+    uint256 public constant HARD_CAP_ETH_AMOUNT = 320 ether;
     uint256 public constant MIN_DEPOSIT_ETH_AMOUNT = 0.1 ether;
     uint256 public constant MAX_DEPOSIT_ETH_AMOUNT = 2 ether;
 
@@ -88,7 +88,7 @@ contract PublicSale is IPublicSale, Ownable {
         require(totalDeposits.add(msg.value) <= HARD_CAP_ETH_AMOUNT, 'PublicSale: Deposit limits reached!');
         require(_deposits[msg.sender].add(msg.value) >= MIN_DEPOSIT_ETH_AMOUNT && _deposits[msg.sender].add(msg.value) <= MAX_DEPOSIT_ETH_AMOUNT, 'PublicSale: Limit is reached or not enough amount!');
 
-        // Check the whitelisted status during the the first 6 hours
+        // Check the whitelisted status during the the first 2 hours
         if (block.timestamp < publicSaleStartTimestamp.add(WHITELISTED_USERS_ACCESS)) {
             require(_whitelistedAmount[msg.sender] > 0, 'PublicSale: Its time for whitelisted investors only!');
             require(_whitelistedAmount[msg.sender] >= msg.value, 'PublicSale: Sent amount should not be bigger from allowed limit!');
@@ -129,8 +129,8 @@ contract PublicSale is IPublicSale, Ownable {
 
         // Calculate distribution and liquidity amounts
         uint256 balance = address(this).balance;
-        // Prepare 70% of all ETH for LP creation
-        uint256 liquidityEth = balance.mul(7000).div(10000);
+        // Prepare 60% of all ETH for LP creation
+        uint256 liquidityEth = balance.mul(6000).div(10000);
 
         // Transfer ETH to pre-sale address and liquidity provider
         publicSaleFund.transfer(balance.sub(liquidityEth));
@@ -217,13 +217,13 @@ contract PublicSale is IPublicSale, Ownable {
         marketingLockContract = address(new CliffVesting(marketingReceiver, 7 days, 90 days, address(oneUpToken)));      //  7 days cliff   3 months vesting
         reserveLockContract = address(new CliffVesting(reserveReceiver, 270 days, 360 days, address(oneUpToken)));        //  9 months cliff 3 months vesting
 
-        oneUpToken.mint(developerLockContract, 8000000 ether);  // 8 mln tokens
-        oneUpToken.mint(marketingLockContract, 5000000 ether);  // 5 mln tokens
-        oneUpToken.mint(reserveLockContract, 1500000 ether);    // 1.5 mln tokens
+        oneUpToken.mint(developerLockContract, 2000000 ether);  // 2 mln tokens
+        oneUpToken.mint(marketingLockContract, 2000000 ether);  // 2 mln tokens
+        oneUpToken.mint(reserveLockContract, 500000 ether);    // 500k tokens
     }
 
     /// @notice Whitelist public sale privileged users
-    /// @dev This users allowed to invest during the first 6 hours
+    /// @dev This users allowed to invest during the first 2 hours
     /// @param users list of addresses
     /// @param maxEthDeposit max amount of ETH which users allowed to invest during this period
     function whitelistUsers(address[] calldata users, uint256 maxEthDeposit) external override onlyOwner {
@@ -243,7 +243,7 @@ contract PublicSale is IPublicSale, Ownable {
     // GETTERS
     // ------------------------
 
-    /// @notice Returns how much provided user can invest during the first 6 hours (if whitelisted)
+    /// @notice Returns how much provided user can invest during the first 2 hours (if whitelisted)
     /// @param user address
     function getWhitelistedAmount(address user) external override view returns (uint256) {
         return _whitelistedAmount[user];
